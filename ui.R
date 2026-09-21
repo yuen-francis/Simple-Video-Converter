@@ -6,13 +6,15 @@ ui <- fluidPage(
   
   actionButton(
     "browse",
-    "Browse"
+    "Select Video Folder"
   ),
   
   br(),
   br(),
   
-  textOutput("folder_path"),
+  wellPanel(
+    textOutput("folder_path")
+  ),
   
   br(),
   

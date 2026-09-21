@@ -1,21 +1,22 @@
 library(shiny)
 
+source("common.R")
+
 server <- function(input, output, session) {
   
   folder <- reactiveVal(NULL)
   
+  # Browse for folder
   observeEvent(input$browse, {
     
-    selected_folder <- choose.dir(
-      default = "C:/",
-      caption = "Select your video folder"
-    )
+    selected_folder <- choose_video_folder()
     
-    req(selected_folder)
-    
-    folder(selected_folder)
+    if (!is.null(selected_folder)) {
+      folder(selected_folder)
+    }
   })
   
+  # Display selected folder
   output$folder_path <- renderText({
     
     req(folder())
@@ -36,15 +37,20 @@ server <- function(input, output, session) {
     )
   })
   
+  # Display number of videos
   output$video_count <- renderText({
     
     req(folder())
     
     video_files <- videos()
     
-    paste("Number of videos:", length(video_files))
+    paste(
+      "Number of videos:",
+      length(video_files)
+    )
   })
   
+  # Display video list
   output$video_list <- renderText({
     
     req(folder())
@@ -94,7 +100,9 @@ server <- function(input, output, session) {
       input_file <- video_files[i]
       
       output_name <- paste0(
-        tools::file_path_sans_ext(basename(input_file)),
+        tools::file_path_sans_ext(
+          basename(input_file)
+        ),
         ".",
         output_format
       )
@@ -116,6 +124,7 @@ server <- function(input, output, session) {
     commands
   })
   
+  # Display FFmpeg commands
   output$ffmpeg_commands <- renderText({
     
     commands <- ffmpeg_commands()
@@ -147,6 +156,20 @@ server <- function(input, output, session) {
       return()
     }
     
+    # Find FFmpeg
+    ffmpeg <- find_ffmpeg()
+    
+    if (is.null(ffmpeg)) {
+      
+      showNotification(
+        "FFmpeg could not be found. Please check your FFmpeg installation.",
+        type = "error",
+        duration = NULL
+      )
+      
+      return()
+    }
+    
     # Create output folder
     converted_folder <- file.path(
       folder(),
@@ -159,31 +182,90 @@ server <- function(input, output, session) {
     
     commands <- ffmpeg_commands()
     
+    # Show conversion notification
     showNotification(
-      paste("Converting", length(video_files), "video(s)..."),
-      type = "message"
+      paste(
+        "Converting",
+        length(video_files),
+        "video(s)..."
+      ),
+      type = "message",
+      duration = NULL,
+      id = "conversion_progress"
     )
     
+    # Track successful and failed conversions
+    successful <- 0
+    failed <- 0
+    
     # Run each FFmpeg command
-    ffmpeg <- find_ffmpeg()
-    
-    if (is.null(ffmpeg)) {
-      stop("FFmpeg could not be found.")
-    }
-    
     for (command in commands) {
       
-      system2(
+      result <- system2(
         ffmpeg,
         args = sub("^ffmpeg ", "", command),
         stdout = TRUE,
         stderr = TRUE
       )
+      
+      status <- attr(
+        result,
+        "status",
+        exact = TRUE
+      )
+      
+      if (is.null(status) || status == 0) {
+        successful <- successful + 1
+      } else {
+        failed <- failed + 1
+      }
     }
     
-    showNotification(
-      "Conversion complete.",
-      type = "message"
+    # Remove conversion notification
+    removeNotification(
+      id = "conversion_progress"
     )
+    
+    # Display final result
+    if (failed == 0) {
+      
+      showNotification(
+        paste(
+          "Success!",
+          successful,
+          "video(s) converted successfully.",
+          "Files saved to the converted_videos folder."
+        ),
+        type = "message",
+        duration = 10
+      )
+      
+    } else if (successful > 0) {
+      
+      showNotification(
+        paste(
+          "Conversion finished with warnings.",
+          successful,
+          "video(s) converted successfully and",
+          failed,
+          "video(s) failed."
+        ),
+        type = "warning",
+        duration = NULL
+      )
+      
+    } else {
+      
+      showNotification(
+        paste(
+          "Conversion failed.",
+          "None of the",
+          length(video_files),
+          "video(s) could be converted."
+        ),
+        type = "error",
+        duration = NULL
+      )
+    }
   })
 }
