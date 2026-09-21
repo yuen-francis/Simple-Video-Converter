@@ -28,6 +28,12 @@ ui <- fluidPage(
   
   h4("Conversion options:"),
   
+  checkboxGroupInput(
+    "input_formats",
+    "Convert files of type:",
+    choices = NULL
+  ),
+  
   selectInput(
     "output_format",
     "Output format:",
@@ -49,12 +55,6 @@ ui <- fluidPage(
     ),
     selected = "medium"
   ),
-  
-  br(),
-  
-  h4("FFmpeg commands:"),
-  
-  verbatimTextOutput("ffmpeg_commands"),
   
   br(),
   

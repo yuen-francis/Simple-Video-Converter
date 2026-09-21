@@ -37,6 +37,38 @@ server <- function(input, output, session) {
     )
   })
   
+  observeEvent(videos(), {
+    
+    video_files <- videos()
+    
+    if (length(video_files) == 0) {
+      
+      updateCheckboxGroupInput(
+        session,
+        "input_formats",
+        choices = character(0),
+        selected = character(0)
+      )
+      
+      return()
+    }
+    
+    formats <- unique(
+      tolower(
+        tools::file_ext(video_files)
+      )
+    )
+    
+    formats <- sort(formats)
+    
+    updateCheckboxGroupInput(
+      session,
+      "input_formats",
+      choices = formats,
+      selected = formats
+    )
+  })
+  
   # Display number of videos
   output$video_count <- renderText({
     
@@ -62,7 +94,11 @@ server <- function(input, output, session) {
     }
     
     paste(
-      basename(video_files),
+      paste0(
+        seq_along(video_files),
+        ". ",
+        basename(video_files)
+      ),
       collapse = "\n"
     )
   })
@@ -73,6 +109,23 @@ server <- function(input, output, session) {
     req(folder())
     
     video_files <- videos()
+    
+    selected_formats <- input$input_formats
+    
+    if (
+      length(video_files) == 0 ||
+      length(selected_formats) == 0
+    ) {
+      return(character(0))
+    }
+    
+    video_extensions <- tolower(
+      tools::file_ext(video_files)
+    )
+    
+    video_files <- video_files[
+      video_extensions %in% selected_formats
+    ]
     
     if (length(video_files) == 0) {
       return(character(0))
@@ -146,10 +199,30 @@ server <- function(input, output, session) {
     
     video_files <- videos()
     
+    selected_formats <- input$input_formats
+    
     if (length(video_files) == 0) {
       
       showNotification(
         "No video files found.",
+        type = "warning"
+      )
+      
+      return()
+    }
+    
+    video_extensions <- tolower(
+      tools::file_ext(video_files)
+    )
+    
+    video_files <- video_files[
+      video_extensions %in% selected_formats
+    ]
+    
+    if (length(video_files) == 0) {
+      
+      showNotification(
+        "No videos of the selected formats were found.",
         type = "warning"
       )
       
